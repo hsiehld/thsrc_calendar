@@ -67,7 +67,7 @@ def create_calendar_event(service, holiday_name, sale_date, travel_period, calen
         return
     
     sale_date_obj = parse_date(sale_date)
-    start_time = sale_date_obj.replace(hour=9, minute=0)
+    start_time = sale_date_obj.replace(hour=0, minute=0)
     end_time = start_time + timedelta(minutes=30)
     
     event = {
@@ -107,24 +107,47 @@ def process_thsr_table(html_content):
     if not calendar_id:
         raise Exception("未設定行事曆 ID")
     
-    table = soup.find('table', {'summary': lambda x: x and '高鐵車票購買日期清單' in x})
-    if not table:
+    # 找到所有符合條件的表格
+    tables = soup.find_all('table', {'summary': lambda x: x and '高鐵車票購買日期清單' in x})
+    if not tables:
         raise Exception("找不到目標表格")
     
-    rows = table.find_all('tr')
-    processed_count = 0
+    print(f"找到 {len(tables)} 個時刻表")
+    total_processed = 0
     
-    for row in rows[1:]:
-        columns = row.find_all(['td'])
-        if len(columns) == 3:
-            holiday_name = columns[0].text.strip()
-            travel_period = columns[1].text.strip()
-            sale_date = columns[2].text.strip()
-            
-            create_calendar_event(service, holiday_name, sale_date, travel_period, calendar_id)
-            processed_count += 1
+    # 處理每個表格
+    for table_index, table in enumerate(tables, 1):
+        print(f"\n處理第 {table_index} 個時刻表:")
+        
+        # 找到表格的標題（年份）
+        caption = table.find('caption')
+        year = "未知年份"
+        if caption:
+            year = caption.text.strip()
+        print(f"時刻表年份: {year}")
+        
+        rows = table.find_all('tr')
+        processed_count = 0
+        
+        # 跳過表頭
+        for row in rows[1:]:
+            columns = row.find_all(['td'])
+            if len(columns) == 3:
+                holiday_name = columns[0].text.strip()
+                travel_period = columns[1].text.strip()
+                sale_date = columns[2].text.strip()
+                
+                try:
+                    create_calendar_event(service, holiday_name, sale_date, travel_period, calendar_id)
+                    processed_count += 1
+                except Exception as e:
+                    print(f"處理 {holiday_name} 時發生錯誤: {str(e)}")
+                    continue
+        
+        print(f"第 {table_index} 個時刻表處理了 {processed_count} 個假期事件")
+        total_processed += processed_count
     
-    print(f"\n總共處理了 {processed_count} 個假期事件")
+    print(f"\n總共處理了 {total_processed} 個假期事件")
 
 def main():
     try:
