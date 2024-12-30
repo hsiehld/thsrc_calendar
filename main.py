@@ -6,6 +6,7 @@ import requests
 import time
 from datetime import datetime, timedelta
 import base64
+from zoneinfo import ZoneInfo
 
 THSR_URL = "https://www.thsrc.com.tw/ArticleContent/60dbfb79-ac20-4280-8ffb-b09e7c94f043"
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
@@ -48,8 +49,15 @@ def parse_date(date_str):
 def check_existing_event(service, holiday_name, sale_date, calendar_id):
     """檢查是否已存在相同的行事曆事件"""
     sale_date_obj = parse_date(sale_date)
-    time_min = sale_date_obj.replace(hour=0, minute=0).isoformat() + 'Z'
-    time_max = sale_date_obj.replace(hour=23, minute=59).isoformat() + 'Z'
+    taipei_tz = ZoneInfo("Asia/Taipei")
+
+    # 設定本地時間
+    local_time_min = sale_date_obj.replace(hour=0, minute=0).replace(tzinfo=taipei_tz)
+    local_time_max = sale_date_obj.replace(hour=23, minute=59).replace(tzinfo=taipei_tz)
+
+    # 轉換為 UTC
+    time_min = local_time_min.astimezone(ZoneInfo("UTC")).isoformat().replace('+00:00', 'Z')
+    time_max = local_time_max.astimezone(ZoneInfo("UTC")).isoformat().replace('+00:00', 'Z')
     
     events_result = service.events().list(
         calendarId=calendar_id,
